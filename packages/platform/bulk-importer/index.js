@@ -55,12 +55,6 @@ export default (options) => {
     async prepare(event) {
       const entity = event.entity.toUpperCase();
       const operation = event.operation.toLowerCase();
-      if (!allowedOperations.includes(operation)) {
-        throw new Error(`Operation ${event.operation} unknown`);
-      }
-      if (!event.payload) {
-        throw new Error(`Payload missing in ${JSON.stringify(event)}`);
-      }
 
       logger.verbose(`${operation} ${entity} ${event.payload._id} [PREPARE]`);
       logger.profile(`${operation} ${entity} ${event.payload._id} [DONE]`, {
@@ -68,6 +62,29 @@ export default (options) => {
       });
 
       try {
+        if (!allowedOperations.includes(operation)) {
+          const operationUnknownError = new Error(
+            `Operation ${event.operation} unknown`
+          );
+          operationUnknownError.name = 'UNKNOWN_OPERATION';
+          throw operationUnknownError;
+        }
+
+        if (!event.payload) {
+          const payloadMissingError = new Error(
+            `Payload missing in ${JSON.stringify(event)}`
+          );
+          payloadMissingError.name = 'PAYLOAD_MISSING';
+          throw payloadMissingError;
+        }
+
+        if (event?.payload?.error) {
+          // throw application side error in order to communicate and log processing errors in BULK_IMPORT
+          const error = new Error(event.payload.error.message);
+          error.name = event.payload.error.name;
+          throw error;
+        }
+
         await runPrepareAsync(entity, operation, event, context);
         logger.verbose(`${operation} ${entity} ${event.payload._id} [SUCCESS]`);
       } catch (e) {
@@ -78,7 +95,7 @@ export default (options) => {
           operation,
           entity,
           payloadId: event.payload._id,
-          errorCode: e.name,
+          errorName: e.name,
           errorMessage: e.message,
         });
       } finally {
