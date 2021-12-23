@@ -25,7 +25,7 @@ Assortments.helpers({
     forceLiveCollection,
     ...options
   }) {
-    const productIds = this.productIds({
+    const productIds = await this.productIds({
       forceLiveCollection,
       ignoreChildAssortments,
     });

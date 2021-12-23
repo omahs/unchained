@@ -13,35 +13,30 @@ import { makeBreadcrumbsBuilder } from '../breadcrumbs';
 import * as Collections from './collections';
 import settings from '../settings';
 
-const eqSet = (as, bs) => {
-  return [...as].join(',') === [...bs].join(',');
-};
+export const resolveAssortmentLinkFromDatabase =
+  ({ selector = {} } = {}) =>
+  (assortmentId, childAssortmentId) => {
+    const assortment = Collections.Assortments.findOne({
+      _id: assortmentId,
+      ...selector,
+    });
+    return (
+      assortment && {
+        assortmentId,
+        childAssortmentId,
+        parentIds: assortment.parentIds(),
+      }
+    );
+  };
 
-export const resolveAssortmentLinkFromDatabase = ({ selector = {} } = {}) => (
-  assortmentId,
-  childAssortmentId
-) => {
-  const assortment = Collections.Assortments.findOne({
-    _id: assortmentId,
-    ...selector,
-  });
-  return (
-    assortment && {
-      assortmentId,
-      childAssortmentId,
-      parentIds: assortment.parentIds(),
-    }
-  );
-};
-
-export const resolveAssortmentProductsFromDatabase = ({
-  selector = {},
-} = {}) => (productId) => {
-  return Collections.AssortmentProducts.find(
-    { productId, ...selector },
-    { fields: { _id: true, assortmentId: true } }
-  ).fetch();
-};
+export const resolveAssortmentProductsFromDatabase =
+  ({ selector = {} } = {}) =>
+  (productId) => {
+    return Collections.AssortmentProducts.find(
+      { productId, ...selector },
+      { fields: { _id: true, assortmentId: true } }
+    ).fetch();
+  };
 
 export const makeAssortmentBreadcrumbsBuilder = ({
   resolveAssortmentProducts,
@@ -179,9 +174,8 @@ Collections.AssortmentLinks.createAssortmentLink = ({
     created: new Date(),
   };
   if (!forceSortKey) {
-    $setOnInsert.sortKey = Collections.AssortmentLinks.getNewSortKey(
-      parentAssortmentId
-    );
+    $setOnInsert.sortKey =
+      Collections.AssortmentLinks.getNewSortKey(parentAssortmentId);
   } else {
     $set.sortKey = forceSortKey;
   }
@@ -212,9 +206,8 @@ Collections.AssortmentProducts.createAssortmentProduct = ({
     created: new Date(),
   };
   if (!forceSortKey) {
-    $setOnInsert.sortKey = Collections.AssortmentProducts.getNewSortKey(
-      assortmentId
-    );
+    $setOnInsert.sortKey =
+      Collections.AssortmentProducts.getNewSortKey(assortmentId);
   } else {
     $set.sortKey = forceSortKey;
   }
@@ -245,9 +238,8 @@ Collections.AssortmentFilters.createAssortmentFilter = ({
     created: new Date(),
   };
   if (!forceSortKey) {
-    $setOnInsert.sortKey = Collections.AssortmentFilters.getNewSortKey(
-      assortmentId
-    );
+    $setOnInsert.sortKey =
+      Collections.AssortmentFilters.getNewSortKey(assortmentId);
   } else {
     $set.sortKey = forceSortKey;
   }
@@ -431,18 +423,14 @@ Collections.Assortments.updateCleanAssortmentActivation = ({
 Collections.Assortments.wipeAssortments = (onlyDirty = true) => {
   const selector = onlyDirty ? { dirty: true } : {};
   const removedAssortmentCount = Collections.Assortments.remove(selector);
-  const removedAssortmentTextCount = Collections.AssortmentTexts.remove(
-    selector
-  );
-  const removedAssortmentProductsCount = Collections.AssortmentProducts.remove(
-    selector
-  );
-  const removedAssortmentLinksCount = Collections.AssortmentLinks.remove(
-    selector
-  );
-  const removedAssortmentFiltersCount = Collections.AssortmentFilters.remove(
-    selector
-  );
+  const removedAssortmentTextCount =
+    Collections.AssortmentTexts.remove(selector);
+  const removedAssortmentProductsCount =
+    Collections.AssortmentProducts.remove(selector);
+  const removedAssortmentLinksCount =
+    Collections.AssortmentLinks.remove(selector);
+  const removedAssortmentFiltersCount =
+    Collections.AssortmentFilters.remove(selector);
 
   log(`result of assortment purging with onlyDirty=${onlyDirty}`, {
     removedAssortmentCount,
@@ -720,13 +708,12 @@ Collections.Assortments.helpers({
     return Collections.Assortments.getLocalizedTexts(this._id, parsedLocale);
   },
   addProduct({ productId, ...rest }, { skipInvalidation = false } = {}) {
-    const assortmentProduct = Collections.AssortmentProducts.createAssortmentProduct(
-      {
+    const assortmentProduct =
+      Collections.AssortmentProducts.createAssortmentProduct({
         assortmentId: this._id,
         productId,
         ...rest,
-      }
-    );
+      });
     if (!skipInvalidation) {
       this.invalidateProductIdCache();
     }
@@ -758,21 +745,6 @@ Collections.Assortments.helpers({
         sort: { sortKey: 1 },
       }
     ).fetch();
-  },
-  productIds({
-    forceLiveCollection = false,
-    ignoreChildAssortments = false,
-  } = {}) {
-    if (ignoreChildAssortments) {
-      return this.productAssignments().map(({ productId }) => productId);
-    }
-    // eslint-disable-next-line
-    if (!this._cachedProductIds || forceLiveCollection) {
-      // get array of assortment products and child assortment links to products
-      const collectedProductIdTree = this.collectProductIdCacheTree() || [];
-      return [...new Set(settings.zipTree(collectedProductIdTree))];
-    }
-    return this._cachedProductIds; // eslint-disable-line
   },
   linkedAssortments() {
     return Collections.AssortmentLinks.find(
@@ -822,6 +794,24 @@ Collections.Assortments.helpers({
       this.parentIds()
     );
   },
+  async productIds({
+    forceLiveCollection = false,
+    ignoreChildAssortments = false,
+  } = {}) {
+    if (ignoreChildAssortments) {
+      return this.productAssignments().map(({ productId }) => productId);
+    }
+    // eslint-disable-next-line
+    if (!forceLiveCollection) {
+      const cachedProductIds = await settings.getCachedProductIds(this._id);
+      if (cachedProductIds) return cachedProductIds;
+    }
+    return buildProductIds();
+  },
+  buildProductIds() {
+    const collectedProductIdTree = this.collectProductIdCacheTree() || [];
+    return [...new Set(settings.zipTree(collectedProductIdTree))];
+  },
   // returns AssortmentProducts and child assortment links with products.
   collectProductIdCacheTree() {
     // get assortment products related with this assortment I.E AssortmentProducts
@@ -848,25 +838,15 @@ Collections.Assortments.helpers({
     return [...ownProductIds, ...productIds];
   },
   invalidateProductIdCache({ skipUpstreamTraversal = false } = {}) {
-    const linkedAssortments = this.linkedAssortments();
-    const productIds = this.productIds({ forceLiveCollection: true });
+    const productIds = this.buildProductIds();
 
     // eslint-disable-next-line
-    if (eqSet(new Set(productIds), new Set(this._cachedProductIds))) {
-      return 0;
-    }
-    let updateCount = Collections.Assortments.update(
-      { _id: this._id },
-      {
-        $set: {
-          updated: new Date(),
-          _cachedProductIds: productIds,
-        },
-      }
+    let updateCount = Promise.await(
+      settings.setCachedProductIds(this._id, productIds)
     );
-
     if (skipUpstreamTraversal) return updateCount;
 
+    const linkedAssortments = this.linkedAssortments();
     linkedAssortments
       .filter(({ childAssortmentId }) => childAssortmentId === this._id)
       .forEach((upstreamAssortmentLink) => {
