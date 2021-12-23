@@ -15,8 +15,6 @@ Collections.Assortments.attachSchema(
       tags: Array,
       'tags.$': String,
       meta: { type: Object, blackbox: true },
-      _cachedProductIds: Array,
-      '_cachedProductIds.$': String,
       authorId: { type: String, required: true },
       ...Schemas.timestampFields,
     },
@@ -242,8 +240,7 @@ Migrations.add({
 
 Migrations.add({
   version: 20201231.0,
-  name:
-    'drop all assortment-linked entities with assortmentIds that do not exist anymore',
+  name: 'drop all assortment-linked entities with assortmentIds that do not exist anymore',
   up() {
     const idArray = Collections.Assortments.find({})
       .fetch()
@@ -256,6 +253,32 @@ Migrations.add({
       });
       Collections.AssortmentFilters.remove({ assortmentId: { $nin: idArray } });
     }
+  },
+  down() {},
+});
+
+Migrations.add({
+  version: 20211223.0,
+  name: 'Move _cachedProductIds cache to own collection in order to save a lot of bandwidth',
+  up() {
+    Collections.Assortments.find(
+      {},
+      { fields: { _id: true, _cachedProductIds: true } }
+    )
+      .fetch()
+      .forEach((assortment) => {
+        Collections.AssortmentProductIdCache.insert({
+          _id: assortment._id,
+          productIds: assortment._cachedProductIds,
+        });
+      });
+    Collections.Assortments.update(
+      {},
+      {
+        $unset: { _cachedProductIds: 1 },
+      },
+      { multi: true }
+    );
   },
   down() {},
 });
