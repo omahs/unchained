@@ -12,6 +12,7 @@ import { Filters, FilterTexts } from './collections';
 import { FilterDirector } from '../director';
 import { searchProducts } from '../search';
 import intersectSet from '../intersect-set';
+import createFilterValueParser from '../filter-value-parsers';
 
 const util = require('util');
 const zlib = require('zlib');
@@ -408,34 +409,23 @@ Filters.helpers({
       ? this.buildProductIdMap()
       : this.cache() || this.buildProductIdMap();
 
-    if (this.type === FilterTypes.SWITCH) {
-      const [stringifiedBoolean] = values;
-      if (stringifiedBoolean !== undefined) {
-        if (
-          !stringifiedBoolean ||
-          stringifiedBoolean === 'false' ||
-          stringifiedBoolean === '0'
-        ) {
-          return productIds.false;
-        }
-        return productIds.true;
-      }
-      return allProductIds;
-    }
-
-    const reducedByValues = values.reduce((accumulator, value) => {
-      const additionalValues =
-        value === undefined ? allProductIds : productIds[value];
-      return [...accumulator, ...(additionalValues || [])];
-    }, []);
-    return reducedByValues;
+    const parse = createFilterValueParser(this.type);
+    return parse(values, Object.keys(productIds)).reduce(
+      (accumulator, value) => {
+        const additionalValues =
+          value === undefined ? allProductIds : productIds[value];
+        return [...accumulator, ...(additionalValues || [])];
+      },
+      []
+    );
   },
   optionsForFilterType(type) {
     if (type === FilterTypes.SWITCH) return ['true', 'false'];
     return this.options || [];
   },
   loadedOptions({ values, forceLiveCollection, productIdSet, director }) {
-    const mappedOptions = this.optionsForFilterType(this.type)
+    const allOptions = this.optionsForFilterType(this.type);
+    const mappedOptions = allOptions
       .map((value) => {
         const filterOptionProductIds = this.productIds({
           values: [value],
@@ -450,7 +440,12 @@ Filters.helpers({
           definition: () => this.optionObject(value),
           filteredProducts:
             director.aggregateProductIds(filteredProductIds).length,
-          isSelected: values ? values.indexOf(value) !== -1 : false,
+          isSelected: () => {
+            if (!values) return false;
+            const parse = createFilterValueParser(this.type);
+            const normalizedValues = parse(values, [value]);
+            return normalizedValues.indexOf(value) !== -1;
+          },
         };
       })
       .filter(Boolean);
