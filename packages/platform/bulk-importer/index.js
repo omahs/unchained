@@ -33,13 +33,13 @@ export const BulkImportPayloads = createBucket('bulk_import_payloads');
 export default (options) => {
   const bulkOperations = {};
   const preparationIssues = [];
+  const processedOperations = [];
   const { logger } = options;
 
   function bulk(Collection) {
     const raw = Collection.rawCollection();
-    bulkOperations[
-      raw.namespace.collection
-    ] = Collection.rawCollection().initializeOrderedBulkOp();
+    bulkOperations[raw.namespace.collection] =
+      Collection.rawCollection().initializeOrderedBulkOp();
     return bulkOperations[raw.namespace.collection];
   }
 
@@ -70,6 +70,11 @@ export default (options) => {
 
       try {
         await runPrepareAsync(entity, operation, event, context);
+        processedOperations.push({
+          operation,
+          entity,
+          payloadId: event.payload._id,
+        });
         logger.verbose(`${operation} ${entity} ${event.payload._id} [SUCCESS]`);
       } catch (e) {
         logger.verbose(
@@ -92,9 +97,12 @@ export default (options) => {
       logger.info(
         `Execute bulk operations for: ${Object.keys(bulkOperations).join(', ')}`
       );
-      const operationResults = Promise.all(
-        Object.values(bulkOperations).map((o) => o.execute())
-      );
+      const operationResults = {
+        processedOperations,
+        processedBulkOperations: Promise.all(
+          Object.values(bulkOperations).map((o) => o.execute())
+        ),
+      };
       if (preparationIssues?.length) {
         logger.error(
           `${preparationIssues.length} issues occured while preparing events, import finished with errors`
