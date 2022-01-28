@@ -33,7 +33,7 @@ export const BulkImportPayloads = createBucket('bulk_import_payloads');
 export default (options) => {
   const bulkOperations = {};
   const preparationIssues = [];
-  const processedOperations = [];
+  const processedOperations = {};
   const { logger } = options;
 
   function bulk(Collection) {
@@ -70,11 +70,10 @@ export default (options) => {
 
       try {
         await runPrepareAsync(entity, operation, event, context);
-        processedOperations.push({
-          operation,
-          entity,
-          payloadId: event.payload._id,
-        });
+        if (!processedOperations[entity]) processedOperations[entity] = {};
+        if (!processedOperations[entity][operation])
+          processedOperations[entity][operation] = [];
+        processedOperations[entity][operation].push(event.payload._id);
         logger.verbose(`${operation} ${entity} ${event.payload._id} [SUCCESS]`);
       } catch (e) {
         logger.verbose(

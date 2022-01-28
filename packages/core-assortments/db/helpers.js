@@ -806,7 +806,7 @@ Collections.Assortments.helpers({
       const cachedProductIds = await settings.getCachedProductIds(this._id);
       if (cachedProductIds) return cachedProductIds;
     }
-    return buildProductIds();
+    return this.buildProductIds();
   },
   buildProductIds() {
     const collectedProductIdTree = this.collectProductIdCacheTree() || [];
