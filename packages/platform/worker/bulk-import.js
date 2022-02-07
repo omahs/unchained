@@ -42,6 +42,7 @@ class BulkImport extends WorkerPlugin {
       const {
         events,
         createShouldUpsertIfIDExists = false,
+        skipCacheInvalidation = false,
         authorId = 'root',
       } = rawPayload.payloadId ? await unpackPayload(rawPayload) : rawPayload;
 
@@ -50,6 +51,7 @@ class BulkImport extends WorkerPlugin {
         logger,
         authorId,
         createShouldUpsertIfIDExists,
+        skipCacheInvalidation,
       });
       for (let i = 0, len = events.length; i < len; i += 1) {
         // eslint-disable-next-line

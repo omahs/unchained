@@ -42,6 +42,7 @@ export default (options) => {
                   payloadSize: file.length,
                   createShouldUpsertIfIDExists: !!req.query
                     ?.createShouldUpsertIfIDExists,
+                  skipCacheInvalidation: !!req.query?.skipCacheInvalidation,
                   remoteAddress: resolvedContext.remoteAddress,
                 },
                 retries: 0,

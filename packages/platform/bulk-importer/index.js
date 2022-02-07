@@ -39,8 +39,9 @@ export default (options) => {
 
   function bulk(Collection) {
     const raw = Collection.rawCollection();
-    bulkOperations[raw.namespace.collection] =
-      Collection.rawCollection().initializeOrderedBulkOp();
+    bulkOperations[
+      raw.namespace.collection
+    ] = Collection.rawCollection().initializeOrderedBulkOp();
     return bulkOperations[raw.namespace.collection];
   }
 
@@ -50,7 +51,7 @@ export default (options) => {
   };
 
   logger.info(
-    `Configure event import with options: createShouldUpsertIfIDExists=${options.createShouldUpsertIfIDExists}`
+    `Configure event import with options: createShouldUpsertIfIDExists=${options.createShouldUpsertIfIDExists} skipCacheInvalidation=${options.skipCacheInvalidation}`
   );
 
   return {
@@ -115,6 +116,7 @@ export default (options) => {
       return [operationResults, null];
     },
     async invalidateCaches() {
+      if (options?.skipCacheInvalidation) return;
       await Assortments.invalidateFilterCaches();
       await Filters.invalidateFilterCaches();
     },

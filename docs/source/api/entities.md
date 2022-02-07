@@ -16,12 +16,14 @@ Using the Bulk API stores the data in the Unchained Work Queue before processing
 5. Push-based: Immediate representation of changes
 
 In some situations, it's propably wise to develop a sync microservice: You have a source system that
+
 - generates "Pull-based" data feeds, or
 - can not adopt to the JSON described below
 
 ### Endpoint
 
 There is two ways to send bulk import events, one is through GraphQL by adding a BULK_IMPORT work type with an input like this:
+
 ```
 {
   events: [...],
@@ -30,6 +32,7 @@ There is two ways to send bulk import events, one is through GraphQL by adding a
 ```
 
 The other way is to use the REST endpoint /bulk-import:
+
 ```
 curl -X POST -H "Authorization: Bearer XXX" -H "content-type: application/json" --data-binary '{ "events": [] }' -f -v http://localhost:4010/bulk-import?optionA=valueA
 ```
@@ -37,6 +40,7 @@ curl -X POST -H "Authorization: Bearer XXX" -H "content-type: application/json" 
 Every event consists of a type, an operation and a payload.
 
 Supported entity types:
+
 - PRODUCT
 - ASSORTMENT
 - FILTER
@@ -46,6 +50,7 @@ Supported entity types:
 - REVIEWS (coming soon)
 
 Supported operations:
+
 - CREATE
 - UPDATE
 - REMOVE
@@ -65,20 +70,24 @@ Always try to send as many events at a time, so Unchained can optimize write ope
 Options:
 
 - `createShouldUpsertIfIDExists`: In some situations, this can be helpful programming forgiving sync code. If you set `createShouldUpsertIfIDExists` to true, CREATE operations will not fail if the entity with the payloadId already exists and the bulk importer instead tries to merge the new product with the existing one by using update methods.
+- `skipCacheInvalidation`: In some situations, this can be helpful skipping because it can add a lot of weight to the BULK_IMPORT operation and sometimes it's not needed for example availability syncs to have updated filter and assortment caches.
 
 ## JSON Reference
 
 ### Entity Type: Product
 
 Set by unchained:
+
 - authorId,
 - slug history
-- _id, created & updated if not provided
+- \_id, created & updated if not provided
 
 Languages:
+
 - The language code in "content" fields should match an existing Language entity's isoCode in Unchained.
 
 Status:
+
 - You can only use ACTIVE or DRAFT. You have to use the remove operation to set it to DELETED.
 
 ```json
@@ -117,7 +126,7 @@ Status:
           "heightInMillimeters": 0,
           "lengthInMillimeters": 0,
           "widthInMillimeters": 0
-        },
+        }
       },
       "variationResolvers": [
         {
@@ -157,9 +166,7 @@ Status:
           "slug": "produktname",
           "subtitle": "Short description",
           "description": "Long description",
-          "labels": [
-            "Neu"
-          ]
+          "labels": ["Neu"]
         }
       }
     },
@@ -179,7 +186,7 @@ Status:
             "created": null,
             "updated": null,
             "title": "Produktname",
-            "subtitle": "Short description",
+            "subtitle": "Short description"
           }
         }
       }
@@ -221,9 +228,10 @@ Status:
 ### Entity Type: Assortment
 
 Set by unchained:
+
 - authorId,
 - slug history
-- _id, created & updated if not provided
+- \_id, created & updated if not provided
 
 ```json
 {
@@ -288,8 +296,9 @@ Set by unchained:
 ### Entity Type: Filter
 
 Set by unchained:
+
 - authorId,
-- _id, created & updated if not provided
+- \_id, created & updated if not provided
 
 ```json
 {
@@ -324,8 +333,8 @@ Set by unchained:
           "title": "Size",
           "subtitle": "Size of product in centimeters"
         }
-      },
-    },
+      }
+    }
   }
 }
 ```
@@ -359,3 +368,4 @@ Set by unchained:
     }
   }
 }
+```
